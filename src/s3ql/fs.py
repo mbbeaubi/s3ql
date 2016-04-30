@@ -181,13 +181,6 @@ class Operations(llfuse.Operations):
         log.debug('started with %d', id_)
         return id_
 
-    def check_args(self, args):
-        '''Check and/or supplement fuse mount options'''
-
-        args.append(b'big_writes')
-        args.append('max_write=131072')
-        args.append('no_remote_lock')
-
     def readdir(self, id_, off):
         log.debug('started with %d, %d', id_, off)
         if off == 0:
@@ -819,6 +812,26 @@ class Operations(llfuse.Operations):
         if self.failsafe or inode.locked:
             raise FUSEError(errno.EPERM)
 
+        if fields.update_mode:
+            inode.mode = attr.st_mode
+
+        if fields.update_uid:
+            inode.uid = attr.st_uid
+
+        if fields.update_gid:
+            inode.gid = attr.st_gid
+
+        if fields.update_atime:
+            inode.atime_ns = attr.st_atime_ns
+
+        if fields.update_mtime:
+            inode.mtime_ns = attr.st_mtime_ns
+
+        inode.ctime_ns = now_ns
+
+        # This needs to go last, because the call to cache.remove and cache.get
+        # will release the global lock and may thus evict the *inode* object
+        # from the cache.
         if fields.update_size:
             len_ = attr.st_size
 
@@ -850,22 +863,6 @@ class Operations(llfuse.Operations):
                     self.broken_blocks[id_].add(last_block)
                     raise FUSEError(errno.EIO)
 
-        if fields.update_mode:
-            inode.mode = attr.st_mode
-
-        if fields.update_uid:
-            inode.uid = attr.st_uid
-
-        if fields.update_gid:
-            inode.gid = attr.st_gid
-
-        if fields.update_atime:
-            inode.atime_ns = attr.st_atime_ns
-
-        if fields.update_mtime:
-            inode.mtime_ns = attr.st_mtime_ns
-
-        inode.ctime_ns = now_ns
 
         return inode.entry_attributes()
 
